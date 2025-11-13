@@ -1,16 +1,13 @@
-# Dataset configuration for Taqueria Project
-path: C:/Users/JoseusZ/Desktop/ProyectoTaqueria/data
-train: processed/images/train
-val: processed/images/val
-
-# Number of classes
-nc: 6
-
-# Class names
-names: 
-  0: persona
-  1: tortilla
-  2: carne
-  3: cebolla
-  4: cilantro
-  5: salsa
+names:
+  '0': persona
+  '1': teclado
+  '2': mano
+  '3': monitor
+  '4': mouse
+  '5': puntero
+  '6': computadora
+  '7': telefono
+nc: 8
+path: E:\ProyectoIA\data\processed
+train: images/train/smart
+val: images/train/smart

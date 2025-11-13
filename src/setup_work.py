@@ -1,5 +1,5 @@
 """
-Configuración interactiva para personalizar la IA
+Configuración interactiva para personalizar la IA (v4)
 """
 import yaml
 from pathlib import Path
@@ -14,21 +14,19 @@ class WorkConfigurator:
         print("🎯 CONFIGURADOR DE ANÁLISIS DE PRODUCTIVIDAD")
         print("=" * 50)
         
-        # 1. Tipo de trabajo
-        work_type = input("¿Qué tipo de trabajo quieres analizar? (ej: programador, diseñador, cocinero): ").strip().lower()
+        work_type = input("¿Qué tipo de trabajo quieres analizar? (ej: programador): ").strip().lower()
         if not work_type:
             work_type = "programador"
         
-        # 2. Actividades específicas
         print("\n📝 Define las actividades a detectar (escribe 'fin' para terminar):")
-        activities = ["persona"]  # Siempre incluir persona
+        activities = ["persona"] # Siempre incluir 'persona' como clase 0
         
-        print("💡 Actividades sugeridas: computadora, teclado, mouse, telefono, libro, taza")
+        print("💡 Sugeridas: pantalla, computadora, teclado, mouse, mano, telefono, monitor, puntero")
         
         i = 1
         while True:
-            activity = input(f"Actividad {i}: ").strip()
-            if activity.lower() == 'fin':
+            activity = input(f"Actividad {i} (ej: teclado): ").strip().lower()
+            if activity == 'fin':
                 break
             if activity and activity not in activities:
                 activities.append(activity)
@@ -36,7 +34,6 @@ class WorkConfigurator:
             elif not activity:
                 break
         
-        # 3. Crear configuración
         config = {
             'project_name': 'analisis_productividad',
             'work_type': work_type,
@@ -55,7 +52,6 @@ class WorkConfigurator:
             }
         }
         
-        # Guardar configuración
         self.save_config(config)
         self.generate_dataset_config(activities)
         
@@ -63,7 +59,6 @@ class WorkConfigurator:
         print(f"📊 Actividades a detectar: {len(activities)}")
         for idx, activity in enumerate(activities):
             print(f"   {idx}: {activity}")
-        print(f"📁 Archivo: {self.config_path}")
         
         return config
     
@@ -75,11 +70,29 @@ class WorkConfigurator:
             yaml.dump(config, f, allow_unicode=True, indent=2)
     
     def generate_dataset_config(self, activities):
-        """Genera el archivo dataset.yaml automáticamente"""
+        """
+        Genera el archivo dataset.yaml automáticamente
+        ¡CORREGIDO (v4) para usar la estructura de carpetas
+        images/ y labels/ que YOLO espera!
+        """
+        
+        # Ruta base de los datos procesados
+        data_root = str(self.project_root.resolve() / "data" / "processed")
+        
         dataset_config = {
-            'path': str(self.project_root / "data"),
-            'train': 'processed/images/train',
-            'val': 'processed/images/val',
+            # 1. 'path' es la carpeta raíz de los datos
+            'path': data_root,
+            
+            # 2. 'train' apunta a la carpeta de IMÁGENES
+            'train': 'images/train/smart',
+            
+            # 3. 'val' apunta a la carpeta de IMÁGENES
+            #    (Usamos la misma para train y val, como antes)
+            'val': 'images/train/smart',
+            
+            # 4. YOLO buscará automáticamente las etiquetas en:
+            #    <path>/labels/train/smart
+            
             'nc': len(activities),
             'names': {str(i): activity for i, activity in enumerate(activities)}
         }
@@ -88,7 +101,9 @@ class WorkConfigurator:
         with open(dataset_path, 'w', encoding='utf-8') as f:
             yaml.dump(dataset_config, f, allow_unicode=True, indent=2)
         
-        print(f"📁 Dataset config generado: {dataset_path}")
+        print(f"📁 Dataset config (dataset.yaml) generado CORRECTAMENTE.")
+        print(f"   ➡️  Imágenes: {data_root}/images/train/smart")
+        print(f"   ➡️  Etiquetas: {data_root}/labels/train/smart") # <-- ¡Clave!
 
 def main():
     configurator = WorkConfigurator()

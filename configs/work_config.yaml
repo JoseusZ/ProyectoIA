@@ -1,28 +1,21 @@
-# Configuración Genérica para Análisis de Productividad
-project_name: "analisis_productividad"
-work_type: "programador"  # Puede ser: programador, diseñador, cocinero, etc.
-
-# Actividades a detectar (FÁCIL DE MODIFICAR)
 activities:
-  0: "persona"
-  1: "computadora"
-  2: "teclado"
-  3: "mouse"
-  4: "libro_documento"
-  5: "telefono"
-  6: "tomando_notas"
-  7: "reunion_conversacion"
-
-# Métricas a calcular
+  '0': persona
+  '1': teclado
+  '2': mano
+  '3': monitor
+  '4': mouse
+  '5': puntero
+  '6': computadora
+  '7': telefono
 metrics:
-  - "tiempo_activo"
-  - "cambios_actividad" 
-  - "eficiencia_trabajo"
-  - "tiempo_herramientas"
-
-# Configuración de entrenamiento
+- tiempo_activo
+- cambios_actividad
+- eficiencia_trabajo
+- tiempo_herramientas
+project_name: analisis_productividad
 training:
-  base_model: "yolov8n.pt"
+  base_model: yolov8n.pt
+  batch_size: 4
   epochs: 50
   image_size: 416
-  batch_size: 4
+work_type: programador

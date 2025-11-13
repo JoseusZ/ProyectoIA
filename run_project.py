@@ -18,8 +18,12 @@ def debug_environment():
         'run_project.py',
         'src/__init__.py',
         'src/setup_work.py', 
+        'src/data_collector.py',
+        'src/utils/advanced_video_processor.py',
+        'src/utils/auto_etiquetador.py',         # <-- AÑADIDO
+        'src/utils/intelligent_labeling.py',
+        'src/utils/productivity_monitor.py',    # <-- AÑADIDO
         'src/universal_trainer.py',
-        'src/data_collector.py'
     ]
     
     print("\n🔍 VERIFICANDO ARCHIVOS:")
@@ -32,42 +36,35 @@ def debug_environment():
     
     # Verificar Python path
     print(f"\n🐍 Python Path:")
+    # Añadir 'src' al path si no está
+    src_path = str(current_dir / "src")
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+        
     for path in sys.path:
         print(f"   {path}")
     
-    # Verificar imports
-    print(f"\n📦 VERIFICANDO IMPORTS:")
-    try:
-        from src.setup_work import WorkConfigurator
-        print("   ✅ src.setup_work")
-    except Exception as e:
-        print(f"   ❌ src.setup_work: {e}")
-    
-    try:
-        from src.data_collector import DataCollector
-        print("   ✅ src.data_collector")
-    except Exception as e:
-        print(f"   ❌ src.data_collector: {e}")
-    
-    try:
-        from src.universal_trainer import UniversalTrainer
-        print("   ✅ src.universal_trainer")
-    except Exception as e:
-        print(f"   ❌ src.universal_trainer: {e}")
+    # El bloque de verificación de imports se eliminó 
+    # para un inicio más rápido.
 
 def main():
     debug_environment()
     
-    print("\n🎮 OPCIONES PRINCIPALES:")
+    print("\n🎮 OPCIONES PRINCIPALES DEL PROYECTO:")
+    print("--- FASE 1: PREPARACIÓN ---")
     print("1. 🎯 Configurar nuevo tipo de trabajo")
     print("2. 🎥 Grabar datos de entrenamiento")
-    print("3. 🏷️ Abrir etiquetador (LabelImg)")
-    print("4. 🚀 Entrenar modelo")
-    print("6. 🧠 Sistema avanzado de video")
-    print("5. ❌ Salir")
+    print("3. 🧠 Extraer Frames (Procesador de Video)")
+    print("--- FASE 2: ETIQUETADO ---")
+    print("4. 🤖 Pre-etiquetar imágenes (Automático)")
+    print("5. 🏷️  Corregir etiquetas (Manual)")
+    print("--- FASE 3: ENTRENAMIENTO Y EJECUCIÓN ---")
+    print("6. 🚀 Entrenar modelo")
+    print("7. 🕵️  Iniciar Monitor de Productividad (YOLO + MediaPipe)")
+    print("8. ❌ Salir")
     
     try:
-        choice = input("\nSelecciona opción (1-5): ").strip()
+        choice = input("\nSelecciona opción (1-8): ").strip()
         
         if choice == "1":
             print("🎯 Iniciando configuración...")
@@ -80,25 +77,44 @@ def main():
             collector_main()
             
         elif choice == "3":
-            print("🔧 Abriendo LabelImg...")
-            os.system("labelImg")
+            print("🧠 Iniciando sistema avanzado de video...")
+            from src.utils.advanced_video_processor import main as video_processor_main
+            video_processor_main()
             
         elif choice == "4":
+            print("🤖 Iniciando auto-etiquetado...")
+            from src.utils.auto_etiquetador import main as auto_label_main
+            auto_label_main()
+
+        elif choice == "5":
+            print("🏷️  Iniciando herramienta de corrección...")
+            from src.utils.intelligent_labeling import main as labeling_main
+            labeling_main()
+            
+        elif choice == "6":
             print("🚀 Iniciando entrenamiento...")
             from src.universal_trainer import main as trainer_main
             trainer_main()
             
-        elif choice == "5":
-            print("👋 ¡Hasta luego!")
+        elif choice == "7":
+            print("🕵️  Iniciando monitor de productividad...")
+            # Importante: Este script asume que ya entrenaste un modelo
+            # y que existe en 'results/...')
+            from src.utils.productivity_monitor import main as monitor_main
+            monitor_main()
         
-        elif choice == "6":
-            print("6. 🧠 Sistema avanzado de video")
+        elif choice == "8":
+            print("👋 ¡Hasta luego!")
             
         else:
             print("❌ Opción no válida")
             
+    except ImportError as e:
+        print(f"\n💥 ERROR DE IMPORTACIÓN: {e}")
+        print("💡 Asegúrate de que el archivo existe y que no hay errores de sintaxis.")
     except Exception as e:
-        print(f"💥 ERROR: {e}")
+        print(f"\n💥 ERROR INESPERADO: {e}")
+        print("El programa se cerrará.")
         input("Presiona Enter para continuar...")
 
 if __name__ == "__main__":

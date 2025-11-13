@@ -29,8 +29,9 @@ class UniversalTrainer:
         
         # Verificar datos
         if not self.check_training_data():
-            print("❌ No hay datos de entrenamiento.")
-            print("💡 Ejecuta primero: Opción 2 (Grabar datos)")
+            # El mensaje de error ahora es más específico
+            print("❌ No hay datos de entrenamiento en la carpeta '.../train/smart'.")
+            print("💡 Ejecuta primero las Opciones 3, 4 y 5.")
             return
         
         # Cargar modelo
@@ -66,8 +67,13 @@ class UniversalTrainer:
             print(f"❌ Error en entrenamiento: {e}")
     
     def check_training_data(self):
-        """Verifica que existan datos para entrenar"""
-        train_dir = self.project_root / "data" / "processed" / "images" / "train"
+        """
+        Verifica que existan datos para entrenar
+        EN LA CARPETA 'smart'
+        """
+        # --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
+        train_dir = self.project_root / "data" / "processed" / "images" / "train" / "smart"
+        
         return train_dir.exists() and any(train_dir.glob("*.jpg"))
 
 def main():
