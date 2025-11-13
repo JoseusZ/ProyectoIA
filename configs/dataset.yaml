@@ -11,3 +11,4 @@ nc: 8
 path: E:\ProyectoIA\data\processed
 train: images/train/smart
 val: images/train/smart
+  
