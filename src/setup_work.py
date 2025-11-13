@@ -75,8 +75,8 @@ class WorkConfigurator:
         training_config = {
             'base_model': base_model,
             'epochs': epochs,
-            'batch_size': batch_size, # El script v3.1 lo traducirá a 'batch'
-            'image_size': image_size, # El script v3.1 lo traducirá a 'imgsz'
+            'batch_size': batch_size, # El script v3.1 lo traducira a 'batch'
+            'image_size': image_size, # El script v3.1 lo traducira a 'imgsz'
             'patience': 20 # Añadido un default extra
         }
         # --- FIN DE LA MEJORA ---
