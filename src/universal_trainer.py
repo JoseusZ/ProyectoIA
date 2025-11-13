@@ -1,7 +1,8 @@
 """
-Entrenador Universal para cualquier tipo de trabajo (v3 - Global)
+Entrenador Universal para cualquier tipo de trabajo (v3.1 - Global)
 Lee todos los parámetros de entrenamiento desde 'work_config.yaml'
 y usa rutas dinámicas.
+CORREGIDO: Traduce 'batch_size' -> 'batch' y 'image_size' -> 'imgsz'
 """
 import torch
 from pathlib import Path
@@ -46,11 +47,21 @@ class UniversalTrainer:
         # 2. Cargar parámetros de entrenamiento desde el config
         training_params = self.config.get('training', {})
         
-        # Sacar el 'base_model' y dejar el resto como argumentos
+        # --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
+        # Traducir claves incorrectas (de setup_work.py v5) a claves correctas (de YOLO)
+        if 'batch_size' in training_params:
+            training_params['batch'] = training_params.pop('batch_size')
+            print("INFO: Clave 'batch_size' traducida a 'batch'.")
+            
+        if 'image_size' in training_params:
+            training_params['imgsz'] = training_params.pop('image_size')
+            print("INFO: Clave 'image_size' traducida a 'imgsz'.")
+        # --- FIN DE LA CORRECCIÓN ---
+
+        # 3. Sacar el 'base_model' y dejar el resto como argumentos
         base_model_name = training_params.pop('base_model', 'yolov8n.pt')
         
-        # 3. Añadir parámetros esenciales (rutas, etc.)
-        #    Estos NO se pueden personalizar para evitar errores.
+        # 4. Añadir parámetros esenciales (rutas, etc.)
         static_params = {
             'data': str(self.project_root / "configs" / "dataset.yaml"),
             'project': str(self.project_root / "results"),
@@ -58,20 +69,17 @@ class UniversalTrainer:
             'exist_ok': True,
         }
         
-        # 4. Añadir defaults (personalizables si están en el config)
-        #    Si ya los pusiste en work_config.yaml, se usarán esos.
+        # 5. Añadir defaults (personalizables si están en el config)
         training_params.setdefault('device', 0 if torch.cuda.is_available() else 'cpu')
         training_params.setdefault('workers', 0)
         training_params.setdefault('patience', 10)
         training_params.setdefault('save', True)
         training_params.setdefault('amp', True) # Activa mixed precision
         
-        # 5. Combinar todos los parámetros
-        #    Los 'static_params' (rutas) sobreescriben cualquier cosa
-        #    para asegurar que el entrenamiento funcione.
+        # 6. Combinar todos los parámetros
         final_config = {**training_params, **static_params}
 
-        # 6. Cargar el modelo base
+        # 7. Cargar el modelo base
         print(f"Cargando modelo base: {base_model_name}")
         model = YOLO(base_model_name)
         
@@ -79,7 +87,7 @@ class UniversalTrainer:
         for key, value in final_config.items():
             print(f"   {key}: {value}")
         
-        # 7. Entrenar
+        # 8. Entrenar
         print("\n🎯 Iniciando entrenamiento...")
         try:
             results = model.train(**final_config)
@@ -98,7 +106,6 @@ class UniversalTrainer:
         Verifica que existan datos para entrenar (archivos .txt)
         EN LA CARPETA DINÁMICA 'labels/train/{work_type}'
         """
-        # --- ¡AQUÍ ESTÁ LA CORRECCIÓN GLOBAL! ---
         labels_dir = self.project_root / "data" / "processed" / "labels" / "train" / self.work_type
         
         # Revisa si la carpeta existe Y si hay al menos un .txt adentro
@@ -106,7 +113,7 @@ class UniversalTrainer:
 
 def main():
     trainer = UniversalTrainer()
-    trainer.run_training() # Se renombró de 'quick_train'
+    trainer.run_training()
 
 if __name__ == "__main__":
     main()
