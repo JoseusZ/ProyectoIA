@@ -1,9 +1,9 @@
 """
-AUTO-ETIQUETADOR (PRE-LABELING SCRIPT) v4
+AUTO-ETIQUETADOR (PRE-LABELING SCRIPT) v5 (Global)
 Usa un modelo YOLOv8 pre-entrenado para generar las
 etiquetas automáticamente.
-Esta versión guarda las etiquetas en la carpeta 'labels'
-separada, como YOLO espera.
+Esta versión lee 'work_config.yaml' para usar rutas dinámicas
+y guarda las etiquetas en la carpeta 'labels' separada.
 """
 import sys
 from pathlib import Path
@@ -14,13 +14,24 @@ class AutoLabeler:
     def __init__(self, project_root="."):
         self.project_root = Path(project_root)
         
-        # --- ¡RUTAS CORREGIDAS! ---
-        # 1. De dónde LEEMOS las imágenes
-        self.images_dir = self.project_root / "data" / "processed" / "images" / "train" / "smart"
-        # 2. Dónde ESCRIBIMOS las etiquetas
-        self.labels_dir = self.project_root / "data" / "processed" / "labels" / "train" / "smart"
+        # --- 1. Cargar Configuración Global ---
+        self.config = self._load_config() # Cargar config
+        if self.config is None:
+            print("❌ Error fatal: No se pudo cargar work_config.yaml. Saliendo.")
+            print("💡 Ejecuta la 'Opción 1: Configurar...' primero.")
+            sys.exit(1) # Salir si no hay config
         
-        # Crear la carpeta de etiquetas si no existe
+        self.work_type = self.config.get('work_type', 'default_job')
+        print(f"Auto-etiquetador configurado para el trabajo: {self.work_type}")
+        # --- Fin Carga ---
+        
+        # --- ¡RUTAS DINÁMICAS! ---
+        # 2. De dónde LEEMOS las imágenes (definido por Opción 3)
+        self.images_dir = self.project_root / "data" / "processed" / "images" / "train" / self.work_type
+        # 3. Dónde ESCRIBIMOS las etiquetas (definido por Opción 1)
+        self.labels_dir = self.project_root / "data" / "processed" / "labels" / "train" / self.work_type
+        
+        # Crear la carpeta de etiquetas (ahora dinámica) si no existe
         self.labels_dir.mkdir(parents=True, exist_ok=True)
         # --- FIN DE LA CORRECCIÓN ---
         
@@ -32,15 +43,22 @@ class AutoLabeler:
         self.work_classes_list = self.load_work_config()
 
         if not self.my_classes_map or not self.work_classes_list:
-            print("❌ No se pudieron cargar los archivos YAML.")
-            print("💡 Ejecuta la 'Opción 1: Configurar...' primero.")
+            print("❌ No se pudieron cargar los archivos YAML (dataset.yaml o work_config.yaml).")
+            print("💡 Asegúrate de que la Opción 1 se completó correctamente.")
             sys.exit(1)
             
-        # 3. Crear el mapa de traducción dinámicamente
+        # 4. Crear el mapa de traducción dinámicamente
         self.mapping = self.create_dynamic_class_mapping()
         if not self.mapping:
             print("⚠️ Advertencia: El diccionario de traducción está vacío.")
-            print("💡 ¿Tus clases en 'work_config.yaml' coinciden con las clases de COCO (YOLO)?")
+
+    def _load_config(self):
+        """Carga el work_config.yaml completo"""
+        config_path = self.project_root / "configs" / "work_config.yaml"
+        if not config_path.exists():
+            return None
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f)
 
     def load_dataset_config(self):
         """Carga las clases desde el dataset.yaml (la fuente de verdad)"""
@@ -53,15 +71,10 @@ class AutoLabeler:
 
     def load_work_config(self):
         """Carga la lista de actividades desde work_config.yaml"""
-        config_path = self.project_root / "configs" / "work_config.yaml"
-        if not config_path.exists():
+        # self.config ya fue cargado en __init__
+        if not self.config:
             return None
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-        
-        # 'activities' es un dict como {'0': 'persona', '1': 'pantalla', ...}
-        # Devolvemos solo la lista de nombres: ['persona', 'pantalla', ...]
-        activities_dict = config.get('activities', {})
+        activities_dict = self.config.get('activities', {})
         return list(activities_dict.values())
 
     def create_dynamic_class_mapping(self):
@@ -135,13 +148,13 @@ class AutoLabeler:
         images = list(self.images_dir.glob("*.jpg"))
         
         if not images:
-            print("❌ No se encontraron imágenes. Ejecuta la Opción 3 (Extraer Frames) primero.")
+            print(f"❌ No se encontraron imágenes en '{self.images_dir}'.")
+            print("💡 Ejecuta la 'Opción 3: Extraer Frames' primero.")
             return
 
         written_count = 0
         for i, img_path in enumerate(images):
             
-            # --- ¡RUTA DE GUARDADO CORREGIDA! ---
             # El nombre del .txt será el mismo (ej. 'interval_000000.txt')
             # pero se guarda en self.labels_dir
             label_path = self.labels_dir / f"{img_path.stem}.txt"

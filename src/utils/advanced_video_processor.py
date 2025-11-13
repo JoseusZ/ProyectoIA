@@ -2,6 +2,8 @@
 SISTEMA AVANZADO DE PROCESAMIENTO DE VIDEO
 Múltiples estrategias de extracción + Análisis inteligente
 """
+import yaml
+import sys
 import cv2
 import os
 import numpy as np
@@ -14,21 +16,44 @@ import matplotlib.pyplot as plt
 class AdvancedVideoProcessor:
     def __init__(self, project_root="."):
         self.project_root = Path(project_root)
-        self.setup_directories()
+        self.config = self._load_config() # Cargar config
+        if self.config is None:
+            sys.exit(1) # Salir si no hay config
+        
+        self.work_type = self.config.get('work_type', 'default_job')
+        self.setup_directories() # Ahora setup_directories() puede usar self.work_type
+        
+    def _load_config(self):
+        """Carga el work_config.yaml para saber dónde guardar los archivos"""
+        config_path = self.project_root / "configs" / "work_config.yaml"
+        if not config_path.exists():
+            print("❌ Error: 'configs/work_config.yaml' no encontrado.")
+            print("💡 Ejecuta la 'Opción 1: Configurar...' primero.")
+            return None
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f)
     
     def setup_directories(self):
-        """Crea la estructura avanzada de directorios"""
+        """Crea la estructura avanzada de directorios (v2 - Global)"""
+        # Directorios estáticos
         directories = [
             "data/raw/videos",
-            "data/processed/images/train",
-            "data/processed/images/val", 
-            "data/processed/images/test",
             "data/analysis/reports",
             "data/analysis/visualizations",
             "results/processing_logs"
         ]
         
-        for directory in directories:
+        # Directorios dinámicos (basados en el work_type)
+        # ¡Esta es la estructura que YOLO espera!
+        dynamic_dirs = [
+            f"data/processed/images/train/{self.work_type}",
+            f"data/processed/images/val/{self.work_type}", # Aunque no la usemos, la creamos
+            f"data/processed/labels/train/{self.work_type}", # ¡Importante!
+            f"data/processed/labels/val/{self.work_type}",   # ¡Importante!
+        ]
+        
+        for directory in (directories + dynamic_dirs):
             (self.project_root / directory).mkdir(parents=True, exist_ok=True)
     
     def analyze_video_content(self, video_path):
@@ -403,27 +428,27 @@ class AdvancedVideoProcessor:
             if analysis['recommended_strategy'] == 'time_intervals':
                 frames = self.extract_time_intervals(
                     video_path=str(video),
-                    output_dir=output_dir / "smart",
+                    output_dir=output_dir / self.work_type,
                     interval_seconds=8,
                     max_frames=target_frames_per_video
                 )
             elif analysis['recommended_strategy'] == 'motion_based':
                 frames = self.extract_motion_based(
                     video_path=str(video),
-                    output_dir=output_dir / "smart", 
+                    output_dir=output_dir / self.work_type, 
                     motion_threshold=1200,
                     max_frames=target_frames_per_video
                 )
             elif analysis['recommended_strategy'] == 'keyframes':
                 frames = self.extract_keyframes(
                     video_path=str(video),
-                    output_dir=output_dir / "smart",
+                    output_dir=output_dir / self.work_type, 
                     max_frames=target_frames_per_video
                 )
             else:  # adaptive
                 frames = self.extract_adaptive(
                     video_path=str(video),
-                    output_dir=output_dir / "smart",
+                    output_dir=output_dir / self.work_type, 
                     max_frames=target_frames_per_video
                 )
             
@@ -441,7 +466,7 @@ class AdvancedVideoProcessor:
         
         print(f"\n🎉 PROCESAMIENTO INTELIGENTE COMPLETADO!")
         print(f"📈 Total frames extraídos: {total_frames}")
-        print(f"📁 Directorio: {output_dir / 'smart'}")
+        print(f"📁 Directorio: {output_dir / self.work_type}")
         print("\n" + "="*70)
         print("🔄 TRANSICIÓN A ETIQUETADO")
         print("="*70)
@@ -457,10 +482,9 @@ class AdvancedVideoProcessor:
                 print(f"❌ Error: No se pudo cargar el sistema de etiquetado: {e}")
                 print("💡 Asegúrate de que intelligent_labeling.py esté en src/utils/")
         else:
-            print("⚠️  ADVERTENCIA: Sin etiquetado, no podrás entrenar el modelo.")
-            print("💡 Puedes ejecutar el etiquetado después con:")
-            print("   python src/utils/intelligent_labeling.py")
-            print("📁 Tus frames están en: data/processed/images/train/smart/")
+            print("⚠️  ADVERTENCIA: Sin etiquetado, no podrás entrenar el modelo.")
+            print("💡 Puedes ejecutar el etiquetado después con la Opción 5.")
+            print(f"📁 Tus frames están en: {output_dir / self.work_type}")
         
         return total_frames
     
