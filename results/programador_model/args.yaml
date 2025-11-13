@@ -1,7 +1,7 @@
 task: detect
 mode: train
 model: yolov8n.pt
-data: E:\ProyectoIA\configs\dataset.yaml
+data: e:\ProyectoIA\configs\dataset.yaml
 epochs: 50
 time: null
 patience: 10
@@ -12,7 +12,7 @@ save_period: -1
 cache: false
 device: '0'
 workers: 0
-project: E:\ProyectoIA\results
+project: e:\ProyectoIA\results
 name: programador_model
 exist_ok: true
 pretrained: true
