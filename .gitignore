@@ -1,0 +1,21 @@
+# Archivos generados por el sistema y VS Code
+.vscode/settings.json
+.venv/
+__pycache__/
+
+# Reportes y logs generados
+data/analysis/reports/
+data/analysis/visualizations/
+results/processing_logs/
+
+# ¡Lo más importante! Ignorar todas las imágenes procesadas
+data/processed/
+
+# También puedes ignorar videos raw si no quieres subirlos
+# data/raw/videos/
+
+# Ignorar por tipo de archivo (opcional pero recomendado)
+*.jpg
+*.jpeg
+*.png
+*.mp4
