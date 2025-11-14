@@ -1,15 +1,17 @@
 """
-PRODUCTIVITY MONITOR (v0.3 - Global y Configurable)
+PRODUCTIVITY MONITOR (v0.4 - Multiplataforma y Global)
 Combina YOLOv8 y MediaPipe dinámicamente basado
 en el archivo 'work_config.yaml'.
+Detecta el SO para usar el driver de cámara correcto.
 """
 import cv2
 import mediapipe as mp
 from ultralytics import YOLO
 import numpy as np
 import sys
-import yaml  # <--- ¡NUEVO!
-from pathlib import Path # <--- ¡NUEVO!
+import yaml
+import platform  # <--- ¡NUEVO!
+from pathlib import Path
 
 def load_config():
     """Carga el archivo work_config.yaml"""
@@ -31,7 +33,7 @@ def main():
     if config is None:
         sys.exit(1)
         
-    work_type = config.get('work_type', 'default')
+    work_type = config.get('work_type', 'default_job')
     mp_modules_to_load = config.get('mediapipe_modules', ['hands', 'pose']) # Default
 
     # --- 2. PREGUNTAR AL USUARIO (Multi-Cámara) ---
@@ -67,11 +69,8 @@ def main():
 
     # B) Cargar módulos de MediaPipe basados en el config
     mp_drawing = mp.solutions.drawing_utils
-    
-    # Inicializar trackers en None
-    hands = None
-    pose = None
-    face_mesh = None
+    hands, pose, face_mesh = None, None, None
+    mp_hands, mp_pose, mp_face_mesh = None, None, None
     
     if 'hands' in mp_modules_to_load:
         mp_hands = mp.solutions.hands
@@ -88,11 +87,25 @@ def main():
         face_mesh = mp_face_mesh.FaceMesh(min_detection_confidence=0.5)
         print("✅ Módulo MediaPipe 'Face Mesh' cargado.")
 
-    # --- 4. INICIALIZACIÓN DE CÁMARAS ---
+    # --- 4. INICIALIZACIÓN DE CÁMARAS (Multiplataforma) ---
+    
+    # --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
+    os_name = platform.system().lower()
+    if os_name == "windows":
+        camera_api = cv2.CAP_DSHOW
+        print("INFO: Usando driver de cámara CAP_DSHOW (Windows).")
+    elif os_name == "linux":
+        camera_api = cv2.CAP_V4L2
+        print("INFO: Usando driver de cámara CAP_V4L2 (Linux).")
+    else:
+        camera_api = cv2.CAP_ANY # Dejar que OpenCV decida
+        print(f"INFO: Usando driver de cámara por defecto para {os_name}.")
+    # --- FIN DE LA CORRECCIÓN ---
+
     caps = []
     print(f"Intentando abrir {num_cameras} cámara(s)...")
     for i in range(num_cameras):
-        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+        cap = cv2.VideoCapture(i, camera_api) # <-- ¡SE USA EL DRIVER CORRECTO!
         if cap.isOpened():
             caps.append(cap)
             print(f"✅ Cámara {i} abierta exitosamente.")
@@ -114,10 +127,10 @@ def main():
             cap = caps[i]
             ret, frame = cap.read()
             if not ret:
-                print(f"Error leyendo frame de cámara {i}. Omitiendo.")
+                print(f"[WARN] Error leyendo frame de cámara {i}. Omitiendo.")
                 continue
 
-            # A) Ejecutar YOLOv8 (Tracking de Objetos)
+            # A) Ejecutar YOLOv8
             yolo_results = model.track(frame, persist=True, verbose=False)
             annotated_frame = yolo_results[0].plot()
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
