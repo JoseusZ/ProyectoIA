@@ -1,12 +1,10 @@
 """
-INSTALADOR DE ENTORNO GLOBAL (v1.1)
-Este script prepara el entorno de Python para el proyecto 
-de análisis de productividad.
-
+INSTALADOR DE ENTORNO GLOBAL (v1.2)
+Este script prepara el entorno de Python para el proyecto.
 Requiere ser ejecutado con Python 3.10.
 
-Detecta automáticamente el SO, la presencia de GPU (CUDA)
-y maneja las dependencias problemáticas (polars).
+CORREGIDO (v1.2): Usa 'python -m pip' en lugar de 'pip.exe' 
+para evitar errores de permisos en Windows.
 """
 
 import os
@@ -14,7 +12,7 @@ import sys
 import platform
 import subprocess
 import venv
-import shutil  # <-- Importante para borrar la carpeta
+import shutil
 from pathlib import Path
 
 # --- Configuración de Dependencias ---
@@ -26,15 +24,11 @@ COMMON_LIBRARIES = [
     "scikit-learn",
     "matplotlib",
     "lap",
-    "polars[rtcompat]"  # ¡La clave! Evita errores de AVX2
+    "polars[rtcompat]"
 ]
 # -------------------------------------
 
 class EnvironmentSetup:
-    """
-    Clase que maneja la lógica de detección e instalación 
-    del entorno.
-    """
     def __init__(self):
         self.project_root = Path(__file__).parent.resolve()
         self.venv_dir = self.project_root / ".venv"
@@ -42,33 +36,37 @@ class EnvironmentSetup:
         self.os_name = platform.system().lower()
         self.arch = platform.machine().lower()
         
+        # Python que ejecuta ESTE script
+        self.host_python_exec = sys.executable 
+        
+        # --- ¡RUTAS CORREGIDAS! ---
         if self.os_name == "windows":
             self.is_windows = True
-            # Usamos el python que está ejecutando este script
-            self.python_exec = sys.executable
-            self.pip_exec = self.venv_dir / "Scripts" / "pip.exe"
+            # Python DENTRO del .venv
+            self.venv_python_exec = self.venv_dir / "Scripts" / "python.exe"
             self.activate_msg = f"Activa el entorno con: .\\.venv\\Scripts\\Activate.ps1"
         else:
             self.is_windows = False
-            self.python_exec = sys.executable
-            self.pip_exec = self.venv_dir / "bin" / "pip"
+            # Python DENTRO del .venv
+            self.venv_python_exec = self.venv_dir / "bin" / "python"
             self.activate_msg = f"Activa el entorno con: source .venv/bin/activate"
             
         print(f"Sistema Detectado: {self.os_name} ({self.arch})")
         print(f"Raíz del Proyecto: {self.project_root}")
-        print(f"Usando Python: {platform.python_version()} (Desde: {self.python_exec})")
-
+        print(f"Usando Python (Host): {platform.python_version()} (Desde: {self.host_python_exec})")
 
     def run_command(self, command, description):
         """Ejecuta un comando de terminal de forma robusta."""
         print(f"\n⏳ {description}...")
         try:
-            subprocess.run(command, check=True, shell=self.is_windows)
+            # Convertir todas las partes del comando a string
+            cmd_str = [str(c) for c in command]
+            subprocess.run(cmd_str, check=True, shell=self.is_windows)
             print(f"✅ ¡Éxito! {description.split('...')[0]} completado.")
         except subprocess.CalledProcessError as e:
             print(f"\n" + "="*50)
             print(f"❌ ¡ERROR FATAL durante: {description}!")
-            print(f"   Comando que falló: {' '.join(command)}")
+            print(f"   Comando que falló: {' '.join(cmd_str)}")
             print(f"   Error: {e}")
             print("El script se detendrá. Revisa el error e inténtalo de nuevo.")
             print("="*50)
@@ -84,9 +82,8 @@ class EnvironmentSetup:
 
     def create_venv(self):
         """Crea el entorno virtual."""
-        # Esta función ahora solo se llama si .venv no existe o fue borrado.
         self.run_command(
-            [self.python_exec, "-m", "venv", str(self.venv_dir)],
+            [self.host_python_exec, "-m", "venv", str(self.venv_dir)],
             "Creando nuevo entorno virtual (.venv)"
         )
             
@@ -110,9 +107,12 @@ class EnvironmentSetup:
     def install_dependencies(self):
         """Instala todas las librerías necesarias."""
         
+        # --- ¡COMANDOS CORREGIDOS! ---
+        # Ahora usamos self.venv_python_exec -m pip ...
+        
         # 1. Actualizar pip
         self.run_command(
-            [str(self.pip_exec), "install", "--upgrade", "pip", "setuptools", "wheel"],
+            [self.venv_python_exec, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
             "Actualizando pip y setuptools"
         )
         
@@ -120,11 +120,11 @@ class EnvironmentSetup:
         has_cuda = self.detect_cuda()
         
         if has_cuda:
-            torch_command = [str(self.pip_exec), "install", "torch", "torchvision", "torchaudio"]
+            torch_command = [self.venv_python_exec, "-m", "pip", "install", "torch", "torchvision", "torchaudio"]
             desc = "Instalando PyTorch (con CUDA)"
         else:
             torch_command = [
-                str(self.pip_exec), "install", 
+                self.venv_python_exec, "-m", "pip", "install", 
                 "torch", "torchvision", "torchaudio", 
                 "--index-url", "https://download.pytorch.org/whl/cpu"
             ]
@@ -134,15 +134,16 @@ class EnvironmentSetup:
         
         # 3. Instalar el resto de librerías
         self.run_command(
-            [str(self.pip_exec), "install"] + COMMON_LIBRARIES,
+            [self.venv_python_exec, "-m", "pip", "install"] + COMMON_LIBRARIES,
             f"Instalando {len(COMMON_LIBRARIES)} librerías del proyecto"
         )
+        # --- FIN DE LA CORRECCIÓN ---
 
     def run_setup(self):
         """Ejecuta todo el proceso de instalación."""
         print("--- INICIANDO INSTALADOR (usando Python " + platform.python_version() + ") ---")
         
-        # --- 2. Manejo de .venv existente (LÓGICA MEJORADA) ---
+        # --- Manejo de .venv existente (LÓGICA MEJORADA) ---
         venv_ready = False
         if self.venv_dir.exists():
             print("\nINFO: La carpeta '.venv' ya existe.")
@@ -169,11 +170,11 @@ class EnvironmentSetup:
                     break
                 elif choice == '2':
                     print("INFO: Intentando re-usar .venv...")
-                    if not self.pip_exec.exists():
+                    # Ahora validamos el .exe de python, no el de pip
+                    if not self.venv_python_exec.exists():
                         print(f"❌ ¡ERROR! El .venv existente está roto!")
-                        print(f"   No se encuentra: {self.pip_exec}")
+                        print(f"   No se encuentra: {self.venv_python_exec}")
                         print(f"   Por favor, borra la carpeta '.venv' (Opción 1) y vuelve a ejecutar.")
-                        # No salimos, volvemos al bucle
                     else:
                         print("   .venv parece válido. Continuando...")
                         venv_ready = True
@@ -188,7 +189,7 @@ class EnvironmentSetup:
             self.create_venv() # No existía, crearla
             venv_ready = True
 
-        # --- 3. Instalar Dependencias ---
+        # --- Instalar Dependencias ---
         if venv_ready:
             self.install_dependencies()
         
@@ -205,14 +206,14 @@ class EnvironmentSetup:
 # --- Punto de Entrada del Script ---
 if __name__ == "__main__":
     
-    # --- 1. VERIFICACIÓN DE VERSIÓN DE PYTHON ---
+    # --- VERIFICACIÓN DE VERSIÓN DE PYTHON ---
     TARGET_MAJOR, TARGET_MINOR = 3, 10
     current_ver = sys.version_info
     
     if (current_ver.major != TARGET_MAJOR or current_ver.minor != TARGET_MINOR):
-        
         print("="*60)
         print(f"❌ ERROR: VERSIÓN DE PYTHON INCORRECTA")
+        # ... (El resto de la lógica de verificación de versión es correcta) ...
         print(f"   Se esperaba Python {TARGET_MAJOR}.{TARGET_MINOR}, pero estás usando {current_ver.major}.{current_ver.minor}")
         print("   Este script debe ejecutarse con la versión 3.10 para asegurar compatibilidad.")
         print("   El script se detendrá.")
