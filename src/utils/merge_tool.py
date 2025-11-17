@@ -56,34 +56,33 @@ def load_new_dataset_config(new_dataset_path):
         with open(new_config_path, 'r', encoding='utf-8') as f:
             new_config = yaml.safe_load(f)
         
-        # --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
+        # --- ¡CORRECCIÓN v1.1! ---
         names_data = new_config.get('names')
         
         if isinstance(names_data, list):
             # Si es una LISTA (ej. ['keyboard', 'mouse']):
-            # la convertimos a un DICIONARIO (ej. {'0': 'keyboard', '1': 'mouse'})
             print("INFO: El dataset nuevo usa formato de 'lista' para las clases.")
             new_classes_map = {str(idx): name for idx, name in enumerate(names_data)}
         
         elif isinstance(names_data, dict):
             # Si ya es un DICIONARIO (ej. {'0': 'keyboard'}):
-            # simplemente lo usamos.
             print("INFO: El dataset nuevo usa formato de 'dict' para las clases.")
             new_classes_map = names_data
             
         else:
             print(f"❌ Error: No se puede entender el formato de 'names' en {new_config_path}")
-            return None, None
-        # --- FIN DE LA CORRECCIÓN ---
+            return None
+        # --- FIN DE LA CORRECCIÓN v1.1 ---
             
-        return new_classes_map, new_config.get('train')
+        # Ya no devolvemos la ruta 'train' porque es poco fiable
+        return new_classes_map
         
     except FileNotFoundError:
         print(f"❌ Error: No se encontró 'data.yaml' en {new_dataset_path}")
-        return None, None
+        return None
     except Exception as e:
         print(f"❌ Error al leer el 'data.yaml' del nuevo dataset: {e}")
-        return None, None
+        return None
 
 def get_interactive_mapping(new_classes_map):
     """Pregunta al usuario cómo mapear las clases nuevas."""
@@ -118,24 +117,23 @@ def get_interactive_mapping(new_classes_map):
     
     return translation_map
 
-def process_and_copy(new_dataset_path, train_path_str, translation_map):
+def process_and_copy(new_dataset_path, translation_map):
     """Traduce los .txt y copia los .jpg y .txt al proyecto principal."""
     
     print("\n--- 🚀 Paso 2: Fusión de Archivos ---")
     
-    # Ruta a las imágenes y etiquetas del nuevo dataset
-    # La ruta en data.yaml puede ser relativa
-    new_train_path = (new_dataset_path / train_path_str).resolve()
-    new_images_dir = new_train_path / "images"
-    new_labels_dir = new_train_path / "labels"
+    new_train_root = new_dataset_path / "train"
+    new_images_dir = new_train_root / "images"
+    new_labels_dir = new_train_root / "labels"
     
     if not new_images_dir.exists() or not new_labels_dir.exists():
-        print(f"❌ Error: No se encuentran las carpetas 'images' o 'labels' en {new_train_path}")
+        print(f"❌ Error: No se encuentran las carpetas 'images' o 'labels' en {new_train_root}")
+        print("💡 Consejo: Revisa la carpeta descomprimida. ¿Se llama 'train' o 'valid'?")
         return
 
     image_files = list(new_images_dir.glob("*.jpg")) + list(new_images_dir.glob("*.png"))
     
-    print(f"Se encontraron {len(image_files)} imágenes para fusionar.")
+    print(f"Se encontraron {len(image_files)} imágenes para fusionar. Fusionando imágenes...")
     
     copied_count = 0
     ignored_count = 0
@@ -166,7 +164,7 @@ def process_and_copy(new_dataset_path, train_path_str, translation_map):
                     new_line = f"{new_id} {' '.join(parts[1:])}"
                     new_label_lines.append(new_line)
         
-        # Solo copiar si el archivo final tiene al menos una etiqueta útil
+       # Solo copiar si el archivo final tiene al menos una etiqueta útil
         if new_label_lines:
             # 1. Copiar la imagen
             # Damos un nombre único para evitar colisiones
@@ -211,17 +209,24 @@ def main():
     new_dataset_path = extract_dir
     
     # 3. Cargar config del nuevo dataset
-    new_classes_map, train_path_str = load_new_dataset_config(new_dataset_path)
+    new_classes_map = load_new_dataset_config(new_dataset_path)
     if new_classes_map is None:
+        # Si falla, borramos la carpeta descomprimida para evitar errores
+        print(f"Limpiando carpeta descomprimida: {extract_dir}")
+        shutil.rmtree(extract_dir)
         return
         
     # 4. Obtener mapeo del usuario
     translation_map = get_interactive_mapping(new_classes_map)
     
     # 5. Procesar y copiar
-    process_and_copy(new_dataset_path, train_path_str, translation_map)
+    process_and_copy(new_dataset_path, translation_map)
     
-    print("\n💡 ¡Ahora puedes ejecutar la 'Opción 6: Entrenar' de nuevo!")
+    # 6. Limpieza
+    print(f"Limpiando carpeta descomprimida: {extract_dir}")
+    shutil.rmtree(extract_dir)
+    
+    print("\n💡 ¡Ahora puedes ejecutar la 'Opción 7: Entrenar' de nuevo!")
     print("   Tu IA aprenderá de tus datos Y de los datos nuevos.")
 
 if __name__ == "__main__":
