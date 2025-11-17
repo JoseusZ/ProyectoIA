@@ -1,8 +1,0 @@
-persona
-teclado
-mano
-monitor
-mouse
-puntero
-computadora
-telefono

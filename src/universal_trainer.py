@@ -1,8 +1,10 @@
 """
-Entrenador Universal para cualquier tipo de trabajo (v3.1 - Global)
-Lee todos los parámetros de entrenamiento desde 'work_config.yaml'
-y usa rutas dinámicas.
-CORREGIDO: Traduce 'batch_size' -> 'batch' y 'image_size' -> 'imgsz'
+Entrenador Universal para cualquier tipo de trabajo (v4 - Con Memoria)
+Lee todos los parámetros de 'work_config.yaml' y usa rutas dinámicas.
+
+¡NUEVO! Detecta si un 'best.pt' ya existe para este trabajo
+y lo usa para continuar el entrenamiento (Transfer Learning),
+evitando que "olvide" lo aprendido.
 """
 import torch
 from pathlib import Path
@@ -41,14 +43,13 @@ class UniversalTrainer:
         if not self.check_training_data():
             print(f"❌ No se encontraron archivos de etiquetas (.txt) en:")
             print(f"   data/processed/labels/train/{self.work_type}")
-            print("💡 Ejecuta primero las Opciones 3, 4 y 5.")
+            print("💡 Ejecuta primero las Opciones 3, 4 y 5 (con datos acumulados).")
             return
         
         # 2. Cargar parámetros de entrenamiento desde el config
         training_params = self.config.get('training', {})
         
-        # --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
-        # Traducir claves incorrectas (de setup_work.py v5) a claves correctas (de YOLO)
+        # Traducir claves incorrectas
         if 'batch_size' in training_params:
             training_params['batch'] = training_params.pop('batch_size')
             print("INFO: Clave 'batch_size' traducida a 'batch'.")
@@ -56,10 +57,28 @@ class UniversalTrainer:
         if 'image_size' in training_params:
             training_params['imgsz'] = training_params.pop('image_size')
             print("INFO: Clave 'image_size' traducida a 'imgsz'.")
-        # --- FIN DE LA CORRECCIÓN ---
 
-        # 3. Sacar el 'base_model' y dejar el resto como argumentos
-        base_model_name = training_params.pop('base_model', 'yolov8n.pt')
+        # --- ¡AQUÍ ESTÁ LA NUEVA LÓGICA DE MEMORIA! ---
+        
+        # 3. Decidir qué modelo cargar
+        
+        # Esta es la ruta a tu "soldado veterano"
+        resume_model_path = self.project_root / "results" / f"{self.work_type}_model" / "weights" / "best.pt"
+        
+        # Este es el "soldado raso" (de la config)
+        base_model_from_config = training_params.pop('base_model', 'yolov8n.pt')
+        
+        model_to_load = ""
+        if resume_model_path.exists():
+            print(f"✅ ¡Modelo 'best.pt' anterior encontrado!")
+            print(f"   Continuando entrenamiento (Transfer Learning) desde: {resume_model_path}")
+            model_to_load = str(resume_model_path)
+        else:
+            print(f"INFO: No se encontró un modelo 'best.pt' previo.")
+            print(f"      Iniciando un nuevo entrenamiento desde: {base_model_from_config}")
+            model_to_load = base_model_from_config
+            
+        # --- FIN DE LA NUEVA LÓGICA ---
         
         # 4. Añadir parámetros esenciales (rutas, etc.)
         static_params = {
@@ -79,9 +98,9 @@ class UniversalTrainer:
         # 6. Combinar todos los parámetros
         final_config = {**training_params, **static_params}
 
-        # 7. Cargar el modelo base
-        print(f"Cargando modelo base: {base_model_name}")
-        model = YOLO(base_model_name)
+        # 7. Cargar el modelo base (ya sea el 'best.pt' o el 'yolov8n.pt')
+        print(f"Cargando modelo: {model_to_load}")
+        model = YOLO(model_to_load)
         
         print("⚙️  Configuración de Entrenamiento Final:")
         for key, value in final_config.items():
@@ -90,6 +109,8 @@ class UniversalTrainer:
         # 8. Entrenar
         print("\n🎯 Iniciando entrenamiento...")
         try:
+            # .train() es inteligente. Si 'model_to_load' es un 'best.pt',
+            # continuará el entrenamiento (transfer learning).
             results = model.train(**final_config)
             print("✅ ENTRENAMIENTO COMPLETADO!")
             print(f"🎉 Modelo guardado en: {self.project_root / 'results' / final_config['name']}")
