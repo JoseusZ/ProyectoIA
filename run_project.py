@@ -20,9 +20,10 @@ def debug_environment():
         'src/setup_work.py', 
         'src/data_collector.py',
         'src/utils/advanced_video_processor.py',
-        'src/utils/auto_etiquetador.py',         # <-- AÑADIDO
+        'src/utils/auto_etiquetador.py',
         'src/utils/intelligent_labeling.py',
-        'src/utils/productivity_monitor.py',    # <-- AÑADIDO
+        'src/utils/merge_tool.py', # <-- ¡AÑADIDO!
+        'src/utils/productivity_monitor.py',
         'src/universal_trainer.py',
     ]
     
@@ -41,11 +42,12 @@ def debug_environment():
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
         
+    # Añadir la raíz del proyecto al path
+    if str(current_dir) not in sys.path:
+        sys.path.insert(1, str(current_dir))
+        
     for path in sys.path:
         print(f"   {path}")
-    
-    # El bloque de verificación de imports se eliminó 
-    # para un inicio más rápido.
 
 def main():
     debug_environment()
@@ -58,13 +60,14 @@ def main():
     print("--- FASE 2: ETIQUETADO ---")
     print("4. 🤖 Pre-etiquetar imágenes (Automático)")
     print("5. 🏷️  Corregir etiquetas (Manual)")
+    print("6. 🛠️  Fusionar Dataset (Añadir datos)") # <-- ¡NUEVO!
     print("--- FASE 3: ENTRENAMIENTO Y EJECUCIÓN ---")
-    print("6. 🚀 Entrenar modelo")
-    print("7. 🕵️  Iniciar Monitor de Productividad (YOLO + MediaPipe)")
-    print("8. ❌ Salir")
+    print("7. 🚀 Entrenar modelo") # <-- Re-numerado (era 6)
+    print("8. 🕵️  Iniciar Monitor de Productividad (YOLO + MediaPipe)") # <-- Re-numerado (era 7)
+    print("9. ❌ Salir") # <-- Re-numerado (era 8)
     
     try:
-        choice = input("\nSelecciona opción (1-8): ").strip()
+        choice = input("\nSelecciona opción (1-9): ").strip() # <-- Rango actualizado
         
         if choice == "1":
             print("🎯 Iniciando configuración...")
@@ -90,20 +93,25 @@ def main():
             print("🏷️  Iniciando herramienta de corrección...")
             from src.utils.intelligent_labeling import main as labeling_main
             labeling_main()
-            
+
+        # --- BLOQUE NUEVO ---
         elif choice == "6":
+            print("🛠️  Iniciando herramienta de fusión de datasets...")
+            from src.utils.merge_tool import main as merge_main
+            merge_main()
+        # --- FIN DE BLOQUE NUEVO ---
+
+        elif choice == "7": # <-- Re-numerado (era 6)
             print("🚀 Iniciando entrenamiento...")
             from src.universal_trainer import main as trainer_main
             trainer_main()
             
-        elif choice == "7":
+        elif choice == "8": # <-- Re-numerado (era 7)
             print("🕵️  Iniciando monitor de productividad...")
-            # Importante: Este script asume que ya entrenaste un modelo
-            # y que existe en 'results/...')
             from src.utils.productivity_monitor import main as monitor_main
             monitor_main()
         
-        elif choice == "8":
+        elif choice == "9": # <-- Re-numerado (era 8)
             print("👋 ¡Hasta luego!")
             
         else:
