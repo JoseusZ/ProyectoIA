@@ -1,7 +1,7 @@
 task: detect
 mode: train
-model: yolov8n.pt
-data: c:\Users\JoseusZThinkPad\Downloads\ProyectoIA\configs\dataset.yaml
+model: C:\Users\JoseusZThinkPad\Downloads\ProyectoIA\results\programador_model\weights\best.pt
+data: C:\Users\JoseusZThinkPad\Downloads\ProyectoIA\configs\dataset.yaml
 epochs: 100
 time: null
 patience: 20
@@ -12,7 +12,7 @@ save_period: -1
 cache: false
 device: cpu
 workers: 0
-project: c:\Users\JoseusZThinkPad\Downloads\ProyectoIA\results
+project: C:\Users\JoseusZThinkPad\Downloads\ProyectoIA\results
 name: programador_model
 exist_ok: true
 pretrained: true

@@ -1,10 +1,11 @@
 activities:
   '0': persona
-  '1': pantalla
+  '1': monitor
   '2': teclado
-  '3': monitor
-  '4': mouse
-  '5': telefono
+  '3': mouse
+  '4': mano
+  '5': laptop
+  '6': telefono
 mediapipe_modules:
 - hands
 - pose
@@ -16,8 +17,8 @@ metrics:
 project_name: analisis_programador
 training:
   base_model: yolov8n.pt
-  batch_size: 4
-  epochs: 100
+  batch_size: 16
+  epochs: 700
   image_size: 416
   patience: 20
 work_type: programador
