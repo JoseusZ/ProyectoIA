@@ -1,6 +1,6 @@
 """
 VERSIÓN DIAGNÓSTICO - Sistema de Análisis de Productividad
-Actualizado con Integración Google Colab
+Actualizado con Integración Google Colab en Menú
 """
 import os
 import sys
@@ -25,7 +25,7 @@ def debug_environment():
         'src/utils/intelligent_labeling.py',
         'src/utils/merge_tool.py',
         'src/utils/productivity_monitor.py',
-        'src/utils/colab_handler.py', # <-- ¡AÑADIDO PARA VERIFICACIÓN!
+        'src/utils/colab_handler.py', # <-- Verificamos que exista el script
         'src/universal_trainer.py',
     ]
     
@@ -54,28 +54,6 @@ def debug_environment():
 def main():
     # 1. Configurar entorno y rutas
     debug_environment()
-
-    # --- INICIO INTEGRACIÓN GOOGLE COLAB ---
-    try:
-        # Intentamos importar el handler. Como debug_environment ya añadió 'src' al path,
-        # podemos importar desde src.utils o utils dependiendo de cómo lo resuelva Python.
-        print("\n☁️  Verificando entorno de ejecución...")
-        try:
-            from src.utils.colab_handler import check_and_setup_colab
-        except ImportError:
-            # Intento alternativo por si src ya es root en algunos entornos
-            from utils.colab_handler import check_and_setup_colab
-            
-        # Ejecutar la comprobación
-        base_path = str(Path().absolute())
-        check_and_setup_colab(base_path)
-    except ImportError:
-        print("⚠️  No se encontró 'src/utils/colab_handler.py'. Saltando chequeo de nube.")
-    except Exception as e:
-        # Si falla (ej. no estamos en Colab y no tiene dependencias), solo continuamos
-        # print(f"ℹ️  Info entorno: {e}") 
-        pass
-    # --- FIN INTEGRACIÓN GOOGLE COLAB ---
     
     print("\n🎮 OPCIONES PRINCIPALES DEL PROYECTO:")
     print("--- FASE 1: PREPARACIÓN ---")
@@ -89,10 +67,12 @@ def main():
     print("--- FASE 3: ENTRENAMIENTO Y EJECUCIÓN ---")
     print("7. 🚀 Entrenar modelo")
     print("8. 🕵️  Iniciar Monitor de Productividad (YOLO + MediaPipe)")
-    print("9. ❌ Salir")
+    print("--- UTILIDADES NUBE ---")
+    print("10. ☁️  Configurar entorno Colab (Cargar Datos)") # <-- ¡NUEVA OPCIÓN!
+    print("11. ❌ Salir") # <-- CAMBIADO DE 9 A 11
     
     try:
-        choice = input("\nSelecciona opción (1-9): ").strip()
+        choice = input("\nSelecciona opción (1-11): ").strip()
         
         if choice == "1":
             print("🎯 Iniciando configuración...")
@@ -133,8 +113,25 @@ def main():
             print("🕵️  Iniciando monitor de productividad...")
             from src.utils.productivity_monitor import main as monitor_main
             monitor_main()
+
+        # --- NUEVA OPCIÓN PARA COLAB ---
+        elif choice == "10":
+            print("☁️  Iniciando asistente de Google Colab...")
+            try:
+                # Intentamos importar manejando posibles diferencias de ruta
+                try:
+                    from src.utils.colab_handler import check_and_setup_colab
+                except ImportError:
+                    from utils.colab_handler import check_and_setup_colab
+                
+                base_path = str(Path().absolute())
+                check_and_setup_colab(base_path)
+            except ImportError:
+                print("❌ No se encontró el script 'src/utils/colab_handler.py'")
+            except Exception as e:
+                print(f"❌ Error al ejecutar handler de Colab: {e}")
         
-        elif choice == "9":
+        elif choice == "11":
             print("👋 ¡Hasta luego!")
             
         else:
