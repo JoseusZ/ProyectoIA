@@ -19,6 +19,6 @@ training:
   base_model: yolov8n.pt
   batch_size: 16
   epochs: 1000
-  image_size: 416
+  image_size: 640
   patience: 20
 work_type: programador
