@@ -2,8 +2,7 @@ import os
 import shutil
 import zipfile
 import sys
-# Importamos tqdm para las barras de carga. 
-# En Colab suele venir instalado, si no, se instalará con pip install tqdm
+# Importamos tqdm para las barras de carga
 from tqdm.auto import tqdm 
 
 def check_and_setup_colab(base_path):
@@ -25,7 +24,7 @@ def check_and_setup_colab(base_path):
     if IN_COLAB:
         print("\n--- CONFIGURACIÓN DE DATASET PARA COLAB ---")
         print("Elige cómo quieres cargar tus datos:")
-        print("1. Subir archivos ZIP manualmente (Uno para imágenes, uno para etiquetas)")
+        print("1. Cargar ZIPS (Subir manualmente a la barra lateral)")
         print("2. Importar desde una carpeta de Google Drive")
         print("3. Omitir (Si ya cargaste los datos previamente)")
         
@@ -40,57 +39,116 @@ def check_and_setup_colab(base_path):
         os.makedirs(labels_dest, exist_ok=True)
 
         if opcion == '1':
-            _handle_zip_upload(images_dest, labels_dest)
+            _handle_manual_zip(images_dest, labels_dest)
         elif opcion == '2':
             _handle_drive_import(base_path)
         else:
             print("⏩ Saltando carga de datos.")
 
+def _fix_nested_structure(target_dir):
+    """
+    Verifica si el ZIP creó una carpeta extra contenedora y mueve los archivos
+    a la raíz correcta si es necesario.
+    Ejemplo: Convierte 'images/MiDataset/train' -> 'images/train'
+    """
+    # Listar contenido ignorando archivos ocultos del sistema (__MACOSX, .DS_Store)
+    content = [c for c in os.listdir(target_dir) if not c.startswith('.') and not c.startswith('__')]
+    
+    # Caso 1: Si hay una sola carpeta y no es 'train' ni 'val', probablemente sea un contenedor
+    if len(content) == 1:
+        nested_folder_name = content[0]
+        nested_folder_path = os.path.join(target_dir, nested_folder_name)
+        
+        if os.path.isdir(nested_folder_path) and nested_folder_name not in ['train', 'val']:
+            print(f"🔧 Detectada carpeta anidada '{nested_folder_name}'. Corrigiendo estructura...")
+            
+            # Mover todo el contenido de la subcarpeta a la carpeta principal
+            for item in os.listdir(nested_folder_path):
+                src_item = os.path.join(nested_folder_path, item)
+                dest_item = os.path.join(target_dir, item)
+                
+                # Si ya existe en destino, fusionar o sobrescribir con cuidado
+                if os.path.exists(dest_item):
+                    if os.path.isdir(src_item):
+                        # Si es directorio, usar copytree con dirs_exist_ok (Python 3.8+)
+                        shutil.copytree(src_item, dest_item, dirs_exist_ok=True)
+                        shutil.rmtree(src_item)
+                    else:
+                        shutil.move(src_item, dest_item)
+                else:
+                    shutil.move(src_item, dest_item)
+            
+            # Eliminar la carpeta contenedora vacía
+            os.rmdir(nested_folder_path)
+            print("✅ Estructura corregida: Archivos movidos a la raíz.")
+
 def _extract_with_progress(zip_path, extract_to, description):
     """
     Función auxiliar para descomprimir mostrando barra de progreso.
     """
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        # Obtenemos la lista de archivos para saber el total
-        files = zip_ref.infolist()
-        total_files = len(files)
-        
-        # Configuramos la barra de carga
-        print(f"\n📂 {description}...")
-        with tqdm(total=total_files, unit="file", desc="Descomprimiendo") as pbar:
-            for file in files:
-                zip_ref.extract(file, extract_to)
-                pbar.update(1)
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            # Obtenemos la lista de archivos para saber el total
+            files = zip_ref.infolist()
+            total_files = len(files)
+            
+            # Configuramos la barra de carga
+            print(f"\n📂 {description}...")
+            with tqdm(total=total_files, unit="file", desc="Descomprimiendo") as pbar:
+                for file in files:
+                    zip_ref.extract(file, extract_to)
+                    pbar.update(1)
+        return True
+    except zipfile.BadZipFile:
+        print(f"❌ Error: El archivo {zip_path} no es un ZIP válido o está corrupto.")
+        return False
+    except Exception as e:
+        print(f"❌ Error inesperado al descomprimir: {e}")
+        return False
 
-def _handle_zip_upload(images_dest, labels_dest):
-    from google.colab import files
+def _handle_manual_zip(images_dest, labels_dest):
+    print("\n--- ⚠️  INSTRUCCIONES DE CARGA MANUAL ---")
+    print("1. Abre la barra lateral izquierda (icono de carpeta 📁).")
+    print("2. Arrastra tus dos archivos ZIP (imágenes y etiquetas) ahí.")
+    print("3. Espera a que termine la rueda de carga naranja en la barra lateral.")
+    print("------------------------------------------------")
     
-    print("\n--- PASO 1: IMÁGENES ---")
-    print("Por favor, sube el ZIP que contiene las carpetas 'train' y 'val' de tus IMÁGENES.")
-    # La subida (upload) tiene su propia barra nativa de Colab, no necesitamos tqdm aquí
-    uploaded = files.upload()
-    
-    for filename in uploaded.keys():
-        # Usamos la nueva función con barra de progreso para descomprimir
-        _extract_with_progress(filename, images_dest, "Procesando Imágenes")
-        os.remove(filename) # Limpiar el zip
-        
-    print("\n--- PASO 2: ETIQUETAS (LABELS) ---")
-    print("Por favor, sube el ZIP que contiene las carpetas 'train' y 'val' de tus ETIQUETAS.")
-    uploaded = files.upload()
-    
-    for filename in uploaded.keys():
-        # Usamos la nueva función con barra de progreso para descomprimir
-        _extract_with_progress(filename, labels_dest, "Procesando Etiquetas")
-        os.remove(filename) # Limpiar el zip
-    
+    # --- PASO 1: IMÁGENES ---
+    while True:
+        zip_name = input("\nEscribe el NOMBRE EXACTO de tu zip de IMÁGENES (ej: imagenes.zip): ").strip()
+        if zip_name.lower() == 'salir': return
+
+        if os.path.exists(zip_name):
+            if _extract_with_progress(zip_name, images_dest, "Procesando Imágenes"):
+                # APLICAMOS LA CORRECCIÓN DE ESTRUCTURA AQUÍ
+                _fix_nested_structure(images_dest)
+                # Opcional: Borrar zip para ahorrar espacio
+                # os.remove(zip_name) 
+                break
+        else:
+            print(f"❌ No encuentro el archivo '{zip_name}'. Asegúrate de haberlo subido y revisa el nombre.")
+            print("(Escribe 'salir' para cancelar)")
+
+    # --- PASO 2: ETIQUETAS ---
+    while True:
+        zip_name = input("\nEscribe el NOMBRE EXACTO de tu zip de ETIQUETAS (ej: labels.zip): ").strip()
+        if zip_name.lower() == 'salir': return
+
+        if os.path.exists(zip_name):
+            if _extract_with_progress(zip_name, labels_dest, "Procesando Etiquetas"):
+                # APLICAMOS LA CORRECCIÓN DE ESTRUCTURA AQUÍ TAMBIÉN
+                _fix_nested_structure(labels_dest)
+                # os.remove(zip_name)
+                break
+        else:
+            print(f"❌ No encuentro el archivo '{zip_name}'.")
+
     print("\n✅ Carga manual completada.")
 
 def _copy_dir_with_progress(src_path, dest_path):
     """
     Copia un directorio recursivamente mostrando barra de progreso.
     """
-    # 1. Contar archivos primero para configurar la barra
     print("📊 Calculando archivos a copiar...")
     total_files = 0
     for root, dirs, files in os.walk(src_path):
@@ -100,24 +158,19 @@ def _copy_dir_with_progress(src_path, dest_path):
         print("⚠️  La carpeta origen parece vacía.")
         return
 
-    # 2. Copiar con barra
     print(f"🚀 Copiando {total_files} archivos...")
-    copied_count = 0
     
     with tqdm(total=total_files, unit="file", desc="Transfiriendo") as pbar:
         for root, dirs, files in os.walk(src_path):
-            # Calcular ruta relativa para replicar estructura en destino
             rel_path = os.path.relpath(root, src_path)
             current_dest_dir = os.path.join(dest_path, rel_path)
             
-            # Crear directorio destino si no existe
             os.makedirs(current_dest_dir, exist_ok=True)
             
             for file in files:
                 src_file = os.path.join(root, file)
                 dest_file = os.path.join(current_dest_dir, file)
                 
-                # Copiar solo si no existe (equivalente a cp -n) para ganar velocidad en reintentos
                 if not os.path.exists(dest_file):
                     shutil.copy2(src_file, dest_file)
                 
@@ -133,11 +186,9 @@ def _handle_drive_import(base_path):
     print("Ejemplo: /content/drive/MyDrive/ProyectoIA/data/processed")
     drive_path = input("Ruta en Drive: ").strip()
     
-    # Ruta destino local en Colab
     target_dir = os.path.join(base_path, 'data', 'processed')
 
     if os.path.exists(drive_path):
-        # Llamamos a nuestra función personalizada de copiado
         _copy_dir_with_progress(drive_path, target_dir)
         print("\n✅ Transferencia completada.")
     else:
