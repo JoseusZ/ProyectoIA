@@ -7,6 +7,6 @@ names:
   '5': laptop
   '6': telefono
 nc: 7
-path: C:\Users\JoseusZThinkPad\Downloads\ProyectoIA\data\processed
+path: E:\ProyectoIA1\data\processed
 train: images/train/programador
 val: images/train/programador

@@ -18,7 +18,7 @@ project_name: analisis_programador
 training:
   base_model: yolov8n.pt
   batch_size: 16
-  epochs: 700
+  epochs: 1000
   image_size: 416
   patience: 20
 work_type: programador
