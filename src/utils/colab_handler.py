@@ -31,8 +31,8 @@ def check_and_setup_colab(base_path):
         opcion = input("Selecciona una opción (1/2/3): ")
 
         # Rutas destino (Respetando tu estructura)
-        images_dest = os.path.join(base_path, 'data', 'processed', 'images')
-        labels_dest = os.path.join(base_path, 'data', 'processed', 'labels')
+        images_dest = os.path.join(base_path, 'data', 'processed', 'images', 'train', 'programador')
+        labels_dest = os.path.join(base_path, 'data', 'processed', 'labels', 'train', 'programador')
         
         # Crear directorios si no existen
         os.makedirs(images_dest, exist_ok=True)
@@ -49,9 +49,10 @@ def _fix_nested_structure(target_dir):
     """
     Verifica si el ZIP creó una carpeta extra contenedora y mueve los archivos
     a la raíz correcta si es necesario.
-    Ejemplo: Convierte 'images/MiDataset/train' -> 'images/train'
     """
     # Listar contenido ignorando archivos ocultos del sistema (__MACOSX, .DS_Store)
+    if not os.path.exists(target_dir): return
+    
     content = [c for c in os.listdir(target_dir) if not c.startswith('.') and not c.startswith('__')]
     
     # Caso 1: Si hay una sola carpeta y no es 'train' ni 'val', probablemente sea un contenedor
@@ -67,10 +68,8 @@ def _fix_nested_structure(target_dir):
                 src_item = os.path.join(nested_folder_path, item)
                 dest_item = os.path.join(target_dir, item)
                 
-                # Si ya existe en destino, fusionar o sobrescribir con cuidado
                 if os.path.exists(dest_item):
                     if os.path.isdir(src_item):
-                        # Si es directorio, usar copytree con dirs_exist_ok (Python 3.8+)
                         shutil.copytree(src_item, dest_item, dirs_exist_ok=True)
                         shutil.rmtree(src_item)
                     else:
@@ -82,17 +81,53 @@ def _fix_nested_structure(target_dir):
             os.rmdir(nested_folder_path)
             print("✅ Estructura corregida: Archivos movidos a la raíz.")
 
+def _validate_content(target_path, expected_type):
+    """
+    Revisa si los archivos descomprimidos coinciden con lo esperado.
+    expected_type: 'images' o 'labels'
+    """
+    image_ext = ['.jpg', '.jpeg', '.png', '.bmp']
+    label_ext = ['.txt']
+    
+    found_images = 0
+    found_labels = 0
+    
+    for root, _, files in os.walk(target_path):
+        for f in files:
+            ext = os.path.splitext(f)[1].lower()
+            if ext in image_ext: found_images += 1
+            if ext in label_ext: found_labels += 1
+            
+    print(f"📊 Análisis de {expected_type}: Encontradas {found_images} imágenes y {found_labels} archivos de texto.")
+
+    if expected_type == 'images':
+        if found_images == 0:
+            print("⚠️  ¡ALERTA!: No encontré imágenes (.jpg/.png) en la carpeta de imágenes.")
+            print("    ¿Es posible que hayas subido el ZIP incorrecto?")
+            return False
+        if found_labels > found_images:
+            print("⚠️  Advertencia: Hay más archivos de texto que imágenes en la carpeta de imágenes.")
+            
+    elif expected_type == 'labels':
+        if found_labels == 0:
+            print("⚠️  ¡ALERTA!: No encontré etiquetas (.txt) en la carpeta de etiquetas.")
+            return False
+        if found_images > 0:
+            print("🛑 ¡ERROR CRÍTICO!: He detectado IMÁGENES dentro de la carpeta de ETIQUETAS.")
+            print("    Parece que subiste el ZIP de imágenes dos veces por error.")
+            return False
+            
+    return True
+
 def _extract_with_progress(zip_path, extract_to, description):
     """
     Función auxiliar para descomprimir mostrando barra de progreso.
     """
     try:
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            # Obtenemos la lista de archivos para saber el total
             files = zip_ref.infolist()
             total_files = len(files)
             
-            # Configuramos la barra de carga
             print(f"\n📂 {description}...")
             with tqdm(total=total_files, unit="file", desc="Descomprimiendo") as pbar:
                 for file in files:
@@ -120,14 +155,14 @@ def _handle_manual_zip(images_dest, labels_dest):
 
         if os.path.exists(zip_name):
             if _extract_with_progress(zip_name, images_dest, "Procesando Imágenes"):
-                # APLICAMOS LA CORRECCIÓN DE ESTRUCTURA AQUÍ
                 _fix_nested_structure(images_dest)
-                # Opcional: Borrar zip para ahorrar espacio
-                # os.remove(zip_name) 
-                break
+                # Validar contenido
+                if _validate_content(images_dest, 'images'):
+                    break
+                else:
+                    print("🔄 Por favor, intenta subir el archivo correcto nuevamente.")
         else:
-            print(f"❌ No encuentro el archivo '{zip_name}'. Asegúrate de haberlo subido y revisa el nombre.")
-            print("(Escribe 'salir' para cancelar)")
+            print(f"❌ No encuentro el archivo '{zip_name}'.")
 
     # --- PASO 2: ETIQUETAS ---
     while True:
@@ -136,19 +171,21 @@ def _handle_manual_zip(images_dest, labels_dest):
 
         if os.path.exists(zip_name):
             if _extract_with_progress(zip_name, labels_dest, "Procesando Etiquetas"):
-                # APLICAMOS LA CORRECCIÓN DE ESTRUCTURA AQUÍ TAMBIÉN
                 _fix_nested_structure(labels_dest)
-                # os.remove(zip_name)
-                break
+                # Validar contenido
+                if _validate_content(labels_dest, 'labels'):
+                    break
+                else:
+                    print("🔄 Por favor, intenta subir el archivo correcto nuevamente.")
+                    # Limpiamos la carpeta corrupta para evitar mezclas
+                    shutil.rmtree(labels_dest)
+                    os.makedirs(labels_dest, exist_ok=True)
         else:
             print(f"❌ No encuentro el archivo '{zip_name}'.")
 
-    print("\n✅ Carga manual completada.")
+    print("\n✅ Carga manual completada y verificada.")
 
 def _copy_dir_with_progress(src_path, dest_path):
-    """
-    Copia un directorio recursivamente mostrando barra de progreso.
-    """
     print("📊 Calculando archivos a copiar...")
     total_files = 0
     for root, dirs, files in os.walk(src_path):
