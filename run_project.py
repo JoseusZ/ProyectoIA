@@ -1,5 +1,6 @@
 """
 VERSIÓN DIAGNÓSTICO - Sistema de Análisis de Productividad
+Actualizado con Integración Google Colab en Menú
 """
 import os
 import sys
@@ -22,8 +23,9 @@ def debug_environment():
         'src/utils/advanced_video_processor.py',
         'src/utils/auto_etiquetador.py',
         'src/utils/intelligent_labeling.py',
-        'src/utils/merge_tool.py', # <-- ¡AÑADIDO!
+        'src/utils/merge_tool.py',
         'src/utils/productivity_monitor.py',
+        'src/utils/colab_handler.py', # <-- Verificamos que exista el script
         'src/universal_trainer.py',
     ]
     
@@ -50,6 +52,7 @@ def debug_environment():
         print(f"   {path}")
 
 def main():
+    # 1. Configurar entorno y rutas
     debug_environment()
     
     print("\n🎮 OPCIONES PRINCIPALES DEL PROYECTO:")
@@ -60,14 +63,16 @@ def main():
     print("--- FASE 2: ETIQUETADO ---")
     print("4. 🤖 Pre-etiquetar imágenes (Automático)")
     print("5. 🏷️  Corregir etiquetas (Manual)")
-    print("6. 🛠️  Fusionar Dataset (Añadir datos)") # <-- ¡NUEVO!
+    print("6. 🛠️  Fusionar Dataset (Añadir datos)")
     print("--- FASE 3: ENTRENAMIENTO Y EJECUCIÓN ---")
-    print("7. 🚀 Entrenar modelo") # <-- Re-numerado (era 6)
-    print("8. 🕵️  Iniciar Monitor de Productividad (YOLO + MediaPipe)") # <-- Re-numerado (era 7)
-    print("9. ❌ Salir") # <-- Re-numerado (era 8)
+    print("7. 🚀 Entrenar modelo")
+    print("8. 🕵️  Iniciar Monitor de Productividad (YOLO + MediaPipe)")
+    print("--- UTILIDADES NUBE ---")
+    print("10. ☁️  Configurar entorno Colab (Cargar Datos)") # <-- ¡NUEVA OPCIÓN!
+    print("11. ❌ Salir") # <-- CAMBIADO DE 9 A 11
     
     try:
-        choice = input("\nSelecciona opción (1-9): ").strip() # <-- Rango actualizado
+        choice = input("\nSelecciona opción (1-11): ").strip()
         
         if choice == "1":
             print("🎯 Iniciando configuración...")
@@ -94,24 +99,39 @@ def main():
             from src.utils.intelligent_labeling import main as labeling_main
             labeling_main()
 
-        # --- BLOQUE NUEVO ---
         elif choice == "6":
             print("🛠️  Iniciando herramienta de fusión de datasets...")
             from src.utils.merge_tool import main as merge_main
             merge_main()
-        # --- FIN DE BLOQUE NUEVO ---
 
-        elif choice == "7": # <-- Re-numerado (era 6)
+        elif choice == "7":
             print("🚀 Iniciando entrenamiento...")
             from src.universal_trainer import main as trainer_main
             trainer_main()
             
-        elif choice == "8": # <-- Re-numerado (era 7)
+        elif choice == "8":
             print("🕵️  Iniciando monitor de productividad...")
             from src.utils.productivity_monitor import main as monitor_main
             monitor_main()
+
+        # --- NUEVA OPCIÓN PARA COLAB ---
+        elif choice == "10":
+            print("☁️  Iniciando asistente de Google Colab...")
+            try:
+                # Intentamos importar manejando posibles diferencias de ruta
+                try:
+                    from src.utils.colab_handler import check_and_setup_colab
+                except ImportError:
+                    from utils.colab_handler import check_and_setup_colab
+                
+                base_path = str(Path().absolute())
+                check_and_setup_colab(base_path)
+            except ImportError:
+                print("❌ No se encontró el script 'src/utils/colab_handler.py'")
+            except Exception as e:
+                print(f"❌ Error al ejecutar handler de Colab: {e}")
         
-        elif choice == "9": # <-- Re-numerado (era 8)
+        elif choice == "11":
             print("👋 ¡Hasta luego!")
             
         else:
