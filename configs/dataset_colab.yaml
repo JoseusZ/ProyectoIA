@@ -1,0 +1,12 @@
+names:
+  '0': persona
+  '1': monitor
+  '2': teclado
+  '3': mouse
+  '4': mano
+  '5': laptop
+  '6': telefono
+nc: 7
+path: /content/ProyectoIA/data/processed
+train: images/train/programador
+val: images/train/programador
