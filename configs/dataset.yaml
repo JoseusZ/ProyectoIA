@@ -7,6 +7,6 @@ names:
   '5': laptop
   '6': telefono
 nc: 7
-path: /content/drive/MyDrive/ProyectoIA/data/processed
+path: /content/ProyectoIA/data/processed
 train: images/train/programador
 val: images/train/programador
