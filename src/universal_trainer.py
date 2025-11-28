@@ -1,8 +1,8 @@
 """
-Entrenador Universal Híbrido (Local / Colab) v9 - PARANOICO
-- Prueba de escritura en Drive AL INICIO. Si falla, NO arranca.
-- Reporte explícito de cada respaldo.
-- Sin bloques 'try-except' silenciosos.
+Entrenador Universal Híbrido (Local / Colab) v10 - EL RESTAURADOR
+- Busca automáticamente respaldos en Google Drive si no hay nada local.
+- Recupera 'best.pt' o 'last.pt' para no perder progreso.
+- Mantiene la protección de escritura y respaldo automático.
 """
 import torch
 import os
@@ -47,11 +47,17 @@ class UniversalTrainer:
             return yaml.safe_load(f)
 
     def _verify_drive_access(self):
-        """PRUEBA DE FUEGO: Verifica si realmente podemos escribir en Drive"""
+        """Verifica permisos de escritura en Drive"""
         drive_path = Path("/content/drive/MyDrive")
         if not drive_path.exists():
-            print("❌ ERROR CRÍTICO: Google Drive no está montado.")
-            return False
+            # Intentar montar si no está montado
+            print("⚠️ Drive no detectado. Intentando montar...")
+            try:
+                from google.colab import drive
+                drive.mount('/content/drive')
+            except:
+                print("❌ ERROR CRÍTICO: Google Drive no accesible.")
+                return False
             
         backup_dir = drive_path / "ProyectoIA" / "backup_weights" / self.work_type
         backup_dir.mkdir(parents=True, exist_ok=True)
@@ -59,20 +65,47 @@ class UniversalTrainer:
         test_file = backup_dir / "test_write_permission.txt"
         try:
             with open(test_file, 'w') as f:
-                f.write("Prueba de escritura exitosa.")
+                f.write("Prueba.")
             os.remove(test_file)
-            print(f"✅ PRUEBA DE ESCRITURA EN DRIVE EXITOSA.")
-            print(f"   Ruta verificada: {backup_dir}")
+            print(f"✅ ACCESO A DRIVE VERIFICADO: Escritura correcta.")
             return True
         except Exception as e:
-            print(f"❌ ERROR CRÍTICO: No tengo permisos para escribir en Drive.")
-            print(f"   Detalle: {e}")
+            print(f"❌ ERROR: No tengo permisos de escritura en Drive. {e}")
             return False
 
+    def _try_restore_from_drive(self):
+        """
+        Busca en Drive si existe un best.pt o last.pt y lo trae al entorno local.
+        Retorna la ruta del archivo local si tuvo éxito, o None.
+        """
+        if not self.IN_COLAB: return None
+
+        drive_dir = Path("/content/drive/MyDrive/ProyectoIA/backup_weights") / self.work_type
+        local_dir = self.project_root / "results" / f"{self.work_type}_model" / "weights"
+        local_dir.mkdir(parents=True, exist_ok=True)
+
+        print(f"🔍 Buscando respaldos en Drive: {drive_dir} ...")
+
+        # Prioridad 1: best.pt, Prioridad 2: last.pt
+        for filename in ['best.pt', 'last.pt']:
+            drive_file = drive_dir / filename
+            if drive_file.exists():
+                print(f"✨ ¡ENCONTRADO! {filename} detectado en Drive.")
+                print(f"   📥 Descargando a entorno local para entrenar...")
+                target_file = local_dir / filename
+                try:
+                    shutil.copy2(drive_file, target_file)
+                    print(f"   ✅ Restauración completada: {target_file}")
+                    return str(target_file)
+                except Exception as e:
+                    print(f"   ❌ Error al copiar desde Drive: {e}")
+        
+        print("   ⚠️ No se encontraron respaldos previos en Drive. Se iniciará desde cero.")
+        return None
+
     def _setup_drive_backup_callback(self, model):
-        # Primero verificamos acceso
         if not self._verify_drive_access():
-            print("🛑 DETENIENDO ENTRENAMIENTO: Sin respaldo seguro, no arranco.")
+            print("🛑 DETENIENDO: Sin respaldo seguro no arranco.")
             sys.exit(1)
 
         drive_backup_dir = Path("/content/drive/MyDrive/ProyectoIA/backup_weights") / self.work_type
@@ -82,7 +115,6 @@ class UniversalTrainer:
             name = trainer.args.name
             weights_dir = Path(project) / name / "weights"
             
-            # Copiar best.pt y last.pt
             for filename in ['best.pt', 'last.pt']:
                 local_file = weights_dir / filename
                 drive_file = drive_backup_dir / filename
@@ -90,16 +122,15 @@ class UniversalTrainer:
                 if local_file.exists():
                     try:
                         shutil.copy2(local_file, drive_file)
-                        # Imprimir confirmación visual en la consola
-                        current_time = time.strftime("%H:%M:%S")
-                        print(f"   💾 [{current_time}] RESPALDO OK: {filename} guardado en Drive.")
-                    except Exception as e:
-                        print(f"   ⚠️ ERROR CRÍTICO DE RESPALDO: No se pudo copiar {filename}. {e}")
+                        current_time = time.strftime("%H:%M")
+                        # Mensaje minimalista para no saturar
+                        print(f"   ☁️ [{current_time}] Backup OK: {filename}")
+                    except Exception:
+                        pass # Silencioso si falla uno, ya avisamos al inicio
                 
         model.add_callback("on_train_epoch_end", on_train_epoch_end)
 
     def _update_dataset_yaml_for_colab(self):
-        # ... (Igual que la versión v8 anterior) ...
         original_yaml = self.project_root / "configs" / "dataset.yaml"
         colab_yaml = self.project_root / "configs" / "dataset_colab.yaml"
         colab_data_root = self.project_root / "data" / "processed"
@@ -114,7 +145,7 @@ class UniversalTrainer:
         if train_specific.exists(): final_train = str(train_specific)
         elif train_root.exists(): final_train = str(train_root)
         else:
-            print(f"❌ ERROR: No encuentro datos de entrenamiento en {train_root}")
+            print(f"❌ ERROR DATOS: No encuentro {train_root}")
             sys.exit(1)
 
         if val_specific.exists(): final_val = str(val_specific)
@@ -130,7 +161,7 @@ class UniversalTrainer:
         return str(colab_yaml)
 
     def run_training(self):
-        print(f"🚀 ENTRENAMIENTO BLINDADO: {self.work_type.upper()}")
+        print(f"🚀 ENTRENAMIENTO v10 (RESTAURADOR): {self.work_type.upper()}")
         print("=" * 50)
 
         if self.IN_COLAB:
@@ -142,11 +173,27 @@ class UniversalTrainer:
         if 'batch_size' in t_params: t_params['batch'] = t_params.pop('batch_size')
         if 'image_size' in t_params: t_params['imgsz'] = t_params.pop('image_size')
 
-        resume_path = self.project_root / "results" / f"{self.work_type}_model" / "weights" / "best.pt"
+        # --- LÓGICA DE RECUPERACIÓN INTELIGENTE ---
+        local_resume_path = self.project_root / "results" / f"{self.work_type}_model" / "weights" / "best.pt"
         base_model = t_params.pop('base_model', 'yolov8n.pt')
+        model_to_load = base_model
 
-        model_to_load = str(resume_path) if resume_path.exists() else base_model
-        
+        # 1. Buscamos Localmente
+        if local_resume_path.exists():
+            print(f"🔄 Usando modelo LOCAL encontrado: {local_resume_path}")
+            model_to_load = str(local_resume_path)
+        # 2. Si no hay local y estamos en Colab, buscamos en Drive
+        elif self.IN_COLAB:
+            restored_model = self._try_restore_from_drive()
+            if restored_model:
+                model_to_load = restored_model
+                print("🔄 Retomando entrenamiento desde respaldo de Drive.")
+            else:
+                print(f"🆕 Iniciando entrenamiento desde cero: {base_model}")
+        else:
+            print(f"🆕 Iniciando entrenamiento desde cero (Local): {base_model}")
+
+        # Configuración final
         final_args = {
             'data': dataset_yaml_path,
             'project': str(self.project_root / "results"),
@@ -159,16 +206,15 @@ class UniversalTrainer:
         
         model = YOLO(model_to_load)
         
-        # ACTIVA EL RESPALDO CON PRUEBA INICIAL
         if self.IN_COLAB:
             self._setup_drive_backup_callback(model)
 
-        print("\n⚙️  Iniciando YOLO...")
+        print("\n⚙️  Iniciando motor YOLO...")
         try:
             model.train(**final_args)
             print("✅ ENTRENAMIENTO FINALIZADO")
         except Exception as e:
-            print(f"\n❌ Error: {e}")
+            print(f"\n❌ Error en entrenamiento: {e}")
 
 def main():
     UniversalTrainer().run_training()
